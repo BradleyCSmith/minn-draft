@@ -181,85 +181,142 @@ h1, h2, h3 {
   font-size: 0.95rem;
 }
 
-/* ── Card list ── */
-.card-list {
-  list-style: none;
+/* ── Loading screen ── */
+.loading-screen {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-}
-
-.card-item {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  transition: border-color 0.1s, background 0.1s;
-  display: flex;
   align-items: center;
-  gap: 0.6rem;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 1.1rem;
 }
 
-.card-item:hover:not(.card-item--disabled) {
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.loading-screen p { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ── Active pack image grid ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.card-image-item {
+  border-radius: 8px;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
+  overflow: visible;
+}
+
+.card-image-item:hover:not(.card-image-item--disabled) {
   border-color: var(--accent);
+  transform: translateY(-4px);
 }
 
-.card-item--selected {
+.card-image-item--selected {
   border-color: var(--accent);
-  background: rgba(201, 168, 76, 0.1);
+  box-shadow: 0 0 16px rgba(201, 168, 76, 0.55);
 }
 
-.card-item--disabled {
-  opacity: 0.4;
+.card-image-item--disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
-.card-item input[type="checkbox"] {
-  accent-color: var(--accent);
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
+.card-image-item img {
+  width: 100%;
+  display: block;
+  border-radius: 6px;
 }
 
-/* ── Pick list (below cards) ── */
+.card-placeholder {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  aspect-ratio: 63 / 88;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── Pick list (stacked columns) ── */
 .pick-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.pick-list-columns {
+.pick-columns {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.5rem;
+  align-items: flex-start;
 }
 
-.pick-pack {
+.pick-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pick-column-title {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Stacked card effect — each card after the first overlaps the one above */
+.pick-card-stack {
+  display: flex;
+  flex-direction: column;
+  width: 72px;
+}
+
+.pick-card-img {
+  width: 72px;
+  border-radius: 4px;
+  display: block;
+  position: relative;
+}
+
+.pick-card-img + .pick-card-img {
+  margin-top: -82px;
+}
+
+.pick-card-placeholder {
+  width: 72px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 0.75rem;
-}
-
-.pick-pack-title {
-  font-size: 0.8rem;
-  color: var(--accent);
-  letter-spacing: 0.08em;
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-}
-
-.pick-pack ul {
-  list-style: none;
+  aspect-ratio: 63 / 88;
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0.4rem;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-align: center;
+  position: relative;
 }
 
-.pick-pack li {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+.pick-card-placeholder + .pick-card-placeholder,
+.pick-card-img + .pick-card-placeholder,
+.pick-card-placeholder + .pick-card-img {
+  margin-top: -82px;
 }
 
 /* ── Waiting screen ── */
