@@ -14,7 +14,10 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   const [stepIndex, setStepIndex] = useState(0)
   const [myPack, setMyPack] = useState([...packs[myPackIndices[0]]])
   const [oppPack, setOppPack] = useState(null)
-  const [picks, setPicks] = useState([])
+
+  // picksByPack[i] holds the cards picked during pack i
+  const [picksByPack, setPicksByPack] = useState(Array.from({ length: 8 }, () => []))
+
   const [selected, setSelected] = useState([])
   const [waitingForOpp, setWaitingForOpp] = useState(false)
 
@@ -29,7 +32,9 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   const pickCount = step === 'pick1_own' ? 1 : 2
   const activePack = step === 'pick2_opp' ? oppPack : myPack
 
-  // Helper to send a message via Supabase broadcast
+  // Flat list of all picks so far (for onComplete)
+  const allPicks = picksByPack.flat()
+
   function send(event, payload = {}) {
     channel.send({ type: 'broadcast', event, payload })
   }
@@ -47,7 +52,6 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
     setWaitingForOpp(false)
   }
 
-  // Listen for incoming messages from opponent via Supabase broadcast
   useEffect(() => {
     let active = true
 
@@ -90,8 +94,13 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   function confirmPicks() {
     if (selected.length !== pickCount) return
 
-    const newPicks = [...picks, ...selected]
-    setPicks(newPicks)
+    // Add selected cards to the current pack's pick list
+    setPicksByPack(prev => {
+      const updated = prev.map((packPicks, i) =>
+        i === packIndex ? [...packPicks, ...selected] : packPicks
+      )
+      return updated
+    })
     setSelected([])
 
     if (step === 'pick1_own') {
@@ -121,7 +130,7 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
 
     } else if (step === 'pick2_own') {
       if (packIndex === 7) {
-        onComplete(newPicks)
+        onComplete(allPicks)
       } else {
         send('READY_NEXT')
         if (pendingReadyNext) {
@@ -147,12 +156,39 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
     pick2_own: 'Pick 2 more cards from your pack',
   }[step]
 
+  // Columns showing picks from completed packs plus the current pack in progress
+  function PickList() {
+    const packsWithPicks = picksByPack
+      .map((packPicks, i) => ({ packNum: i + 1, cards: packPicks }))
+      .filter(({ cards }) => cards.length > 0)
+
+    if (packsWithPicks.length === 0) return null
+
+    return (
+      <div style={{ marginTop: '1rem' }}>
+        <strong>Your picks:</strong>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+          {packsWithPicks.map(({ packNum, cards }) => (
+            <div key={packNum}>
+              <strong>Pack {packNum}</strong>
+              <ul style={{ margin: 0, paddingLeft: '1rem' }}>
+                {cards.map(card => (
+                  <li key={card}>{card}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (waitingForOpp) {
     return (
       <div>
         <h2>Pack {packIndex + 1} / 8</h2>
         <p>Waiting for opponent...</p>
-        <p>Picks so far: {picks.length}</p>
+        <PickList />
       </div>
     )
   }
@@ -179,7 +215,7 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
       <button onClick={confirmPicks} disabled={selected.length !== pickCount}>
         Confirm picks
       </button>
-      <p>Picks so far: {picks.length}</p>
+      <PickList />
     </div>
   )
 }

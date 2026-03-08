@@ -85,9 +85,10 @@ minn_draft/
 ## Next Steps (in rough priority order)
 
 1. **Remove debug logging** — strip `console.log` calls from `DraftBoard.jsx` before deploying
-2. **Custom session codes** — let the host choose a short human-readable code (e.g. "banana") instead of the auto-generated PeerJS UUID; PeerJS supports custom IDs via `new Peer(customId)`
+2. **Running pick list** — display a visible, running list of each player's own picks during the draft so they can track what they've already selected; players should only see their own picks, not their opponent's (consistent with the face-down nature of the draft)
 3. **Styling** — the UI is currently unstyled HTML; add CSS to make it usable and pleasant
-4. **Card images** — integrate the Scryfall API to show card art during drafting
+4. **Card images** — integrate the Scryfall API to show card art during drafting; support optional set codes in the card list (e.g. `Lightning Bolt [M11]`) so the correct printing's art is fetched rather than defaulting to Scryfall's choice
+5. **Custom domain** — replace `minn-draft.vercel.app` with a custom URL (e.g. `minneapolisdraft.com`); buy a domain from a registrar like Namecheap or Google Domains and connect it to Vercel for free
 
 ## Out of Scope (for now)
 
