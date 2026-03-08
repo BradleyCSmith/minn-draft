@@ -4,10 +4,6 @@ import SessionLobby from './components/SessionLobby.jsx'
 import DraftBoard from './components/DraftBoard.jsx'
 import DecklistExport from './components/DecklistExport.jsx'
 
-// App-level state machine:
-// 'start' → host: 'import' → 'lobby' → 'draft' → 'export'
-// 'start' → guest:           'lobby' → 'draft' → 'export'
-
 export default function App() {
   const [screen, setScreen] = useState('start')
   const [role, setRole] = useState(null)
@@ -38,12 +34,15 @@ export default function App() {
   }
 
   return (
-    <div>
+    <div className="page">
       {screen === 'start' && (
-        <div>
-          <h1>Minneapolis Draft</h1>
-          <button onClick={() => handleRoleSelect('host')}>Host a Session</button>
-          <button onClick={() => handleRoleSelect('guest')}>Join a Session</button>
+        <div className="start-screen">
+          <h1 className="title">Minneapolis Draft</h1>
+          <p className="subtitle">Two-player cube draft</p>
+          <div className="btn-group">
+            <button className="btn btn-large" onClick={() => handleRoleSelect('host')}>Host a Session</button>
+            <button className="btn btn-large" onClick={() => handleRoleSelect('guest')}>Join a Session</button>
+          </div>
         </div>
       )}
       {screen === 'import' && (

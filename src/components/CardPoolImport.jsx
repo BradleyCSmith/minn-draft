@@ -2,8 +2,6 @@ import { useState } from 'react'
 
 const MIN_CARDS = 112
 
-// Accepts a plain-text card list (one card name per line).
-// CubeCobra's text export format is compatible with this.
 export default function CardPoolImport({ onImport }) {
   const [text, setText] = useState('')
   const [error, setError] = useState('')
@@ -25,24 +23,26 @@ export default function CardPoolImport({ onImport }) {
   }
 
   return (
-    <div>
-      <h1>Minneapolis Draft</h1>
-      <h2>Import Card Pool</h2>
-      <p>
+    <div className="panel">
+      <h1 className="title" style={{ marginBottom: '0.25rem' }}>Minneapolis Draft</h1>
+      <hr className="divider" />
+      <h2 className="section-title">Import Card Pool</h2>
+      <p style={{ marginBottom: '1rem', color: 'var(--text-muted)' }}>
         Paste your cube list below (one card name per line).
         You can export this from CubeCobra using the text export option.
       </p>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <textarea
+          className="textarea"
           rows={20}
-          cols={50}
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="Black Lotus&#10;Ancestral Recall&#10;..."
+          placeholder={'Black Lotus\nAncestral Recall\n...'}
         />
-        <br />
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit">Import</button>
+        {error && <p className="error">{error}</p>}
+        <div>
+          <button className="btn" type="submit">Import Cube</button>
+        </div>
       </form>
     </div>
   )

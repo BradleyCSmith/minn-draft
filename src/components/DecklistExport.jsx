@@ -18,12 +18,16 @@ export default function DecklistExport({ picks }) {
   }
 
   return (
-    <div>
-      <h2>Draft Complete!</h2>
-      <p>You drafted {picks.length} cards.</p>
-      <pre>{decklist}</pre>
-      <button onClick={handleCopy}>Copy to Clipboard</button>
-      <button onClick={handleDownload}>Download as .txt</button>
+    <div className="panel" style={{ maxWidth: 600, margin: '4rem auto' }}>
+      <h2 className="section-title">Draft Complete!</h2>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+        You drafted {picks.length} cards. Export your decklist below.
+      </p>
+      <pre className="decklist">{decklist}</pre>
+      <div className="btn-group" style={{ justifyContent: 'flex-start' }}>
+        <button className="btn" onClick={handleCopy}>Copy to Clipboard</button>
+        <button className="btn" onClick={handleDownload}>Download .txt</button>
+      </div>
     </div>
   )
 }

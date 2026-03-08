@@ -1,10 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 
-// Draft step state machine per pack:
-// 'pick1_own'  → pick 1 from your pack
-// 'pick2_opp'  → pick 2 from opponent's pack (after trade)
-// 'pick2_own'  → pick 2 from your pack (after trade back)
-
 const STEPS = ['pick1_own', 'pick2_opp', 'pick2_own']
 
 export default function DraftBoard({ packs, channel, role, onComplete }) {
@@ -14,10 +9,7 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   const [stepIndex, setStepIndex] = useState(0)
   const [myPack, setMyPack] = useState([...packs[myPackIndices[0]]])
   const [oppPack, setOppPack] = useState(null)
-
-  // picksByPack[i] holds the cards picked during pack i
   const [picksByPack, setPicksByPack] = useState(Array.from({ length: 8 }, () => []))
-
   const [selected, setSelected] = useState([])
   const [waitingForOpp, setWaitingForOpp] = useState(false)
 
@@ -31,8 +23,6 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   const step = STEPS[stepIndex]
   const pickCount = step === 'pick1_own' ? 1 : 2
   const activePack = step === 'pick2_opp' ? oppPack : myPack
-
-  // Flat list of all picks so far (for onComplete)
   const allPicks = picksByPack.flat()
 
   function send(event, payload = {}) {
@@ -94,13 +84,11 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   function confirmPicks() {
     if (selected.length !== pickCount) return
 
-    // Add selected cards to the current pack's pick list
-    setPicksByPack(prev => {
-      const updated = prev.map((packPicks, i) =>
+    setPicksByPack(prev =>
+      prev.map((packPicks, i) =>
         i === packIndex ? [...packPicks, ...selected] : packPicks
       )
-      return updated
-    })
+    )
     setSelected([])
 
     if (step === 'pick1_own') {
@@ -156,7 +144,6 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
     pick2_own: 'Pick 2 more cards from your pack',
   }[step]
 
-  // Columns showing picks from completed packs plus the current pack in progress
   function PickList() {
     const packsWithPicks = picksByPack
       .map((packPicks, i) => ({ packNum: i + 1, cards: packPicks }))
@@ -165,16 +152,14 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
     if (packsWithPicks.length === 0) return null
 
     return (
-      <div style={{ marginTop: '1rem' }}>
-        <strong>Your picks:</strong>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+      <div className="pick-list">
+        <div className="section-title">Your picks ({allPicks.length} cards)</div>
+        <div className="pick-list-columns">
           {packsWithPicks.map(({ packNum, cards }) => (
-            <div key={packNum}>
-              <strong>Pack {packNum}</strong>
-              <ul style={{ margin: 0, paddingLeft: '1rem' }}>
-                {cards.map(card => (
-                  <li key={card}>{card}</li>
-                ))}
+            <div key={packNum} className="pick-pack">
+              <div className="pick-pack-title">Pack {packNum}</div>
+              <ul>
+                {cards.map(card => <li key={card}>{card}</li>)}
               </ul>
             </div>
           ))}
@@ -185,36 +170,52 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
 
   if (waitingForOpp) {
     return (
-      <div>
-        <h2>Pack {packIndex + 1} / 8</h2>
-        <p>Waiting for opponent...</p>
+      <div className="draft-layout">
+        <div className="draft-header">
+          <span className="pack-label">Pack {packIndex + 1} / 8</span>
+        </div>
+        <div className="panel waiting">Waiting for opponent...</div>
         <PickList />
       </div>
     )
   }
 
   return (
-    <div>
-      <h2>Pack {packIndex + 1} / 8</h2>
-      <p>{stepLabel} — {selected.length}/{pickCount} selected</p>
-      <ul>
-        {(activePack || []).map(card => (
-          <li key={card}>
-            <label>
-              <input
-                type="checkbox"
-                checked={selected.includes(card)}
-                onChange={() => toggleCard(card)}
-                disabled={!selected.includes(card) && selected.length >= pickCount}
-              />
-              {card}
-            </label>
-          </li>
-        ))}
-      </ul>
-      <button onClick={confirmPicks} disabled={selected.length !== pickCount}>
-        Confirm picks
-      </button>
+    <div className="draft-layout">
+      <div className="draft-header">
+        <span className="pack-label">Pack {packIndex + 1} / 8</span>
+        <span className="step-label">— {stepLabel} ({selected.length}/{pickCount})</span>
+      </div>
+
+      <div>
+        <ul className="card-list">
+          {(activePack || []).map(card => {
+            const isSelected = selected.includes(card)
+            const isDisabled = !isSelected && selected.length >= pickCount
+            return (
+              <li
+                key={card}
+                className={`card-item ${isSelected ? 'card-item--selected' : ''} ${isDisabled ? 'card-item--disabled' : ''}`}
+                onClick={() => !isDisabled && toggleCard(card)}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => {}}
+                  disabled={isDisabled}
+                />
+                {card}
+              </li>
+            )
+          })}
+        </ul>
+        <div style={{ marginTop: '1rem' }}>
+          <button className="btn" onClick={confirmPicks} disabled={selected.length !== pickCount}>
+            Confirm picks
+          </button>
+        </div>
+      </div>
+
       <PickList />
     </div>
   )

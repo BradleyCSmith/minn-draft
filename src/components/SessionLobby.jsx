@@ -12,7 +12,6 @@ export default function SessionLobby({ role, cardPool, onReady }) {
 
     const channel = supabase.channel(`draft-${code}`)
 
-    // Wait for guest to join — only accept the first JOIN received
     let guestJoined = false
     channel.on('broadcast', { event: 'JOIN' }, () => {
       if (guestJoined) return
@@ -25,7 +24,7 @@ export default function SessionLobby({ role, cardPool, onReady }) {
 
     channel.subscribe((s) => {
       if (s === 'SUBSCRIBED') {
-        setStatus(`Waiting for guest to join with code: "${code}"`)
+        setStatus(`Waiting for guest to join...`)
       }
     })
   }
@@ -36,7 +35,6 @@ export default function SessionLobby({ role, cardPool, onReady }) {
 
     const channel = supabase.channel(`draft-${code}`)
 
-    // Wait for host to send packs
     channel.on('broadcast', { event: 'START' }, ({ payload }) => {
       onReady(channel, payload.packs)
     })
@@ -53,37 +51,54 @@ export default function SessionLobby({ role, cardPool, onReady }) {
 
   if (role === 'host') {
     return (
-      <div>
-        <h2>Host a Session</h2>
-        <p>Choose a short code to share with your opponent:</p>
-        <input
-          type="text"
-          placeholder="e.g. banana"
-          value={sessionCode}
-          onChange={e => setSessionCode(e.target.value)}
-        />
-        <button onClick={handleHost} disabled={!sessionCode.trim()}>
-          Create Session
-        </button>
-        <p>{status}</p>
+      <div className="panel" style={{ maxWidth: 480, margin: '4rem auto' }}>
+        <h2 className="section-title">Host a Session</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+          Choose a short code to share with your opponent:
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <input
+            className="input"
+            type="text"
+            placeholder="e.g. banana"
+            value={sessionCode}
+            onChange={e => setSessionCode(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleHost()}
+          />
+          <button className="btn" onClick={handleHost} disabled={!sessionCode.trim()}>
+            Create
+          </button>
+        </div>
+        {status && (
+          <>
+            <div className="session-code">{sessionCode.trim().toLowerCase()}</div>
+            <p className="status">{status}</p>
+          </>
+        )}
       </div>
     )
   }
 
   return (
-    <div>
-      <h2>Join a Session</h2>
-      <p>Enter the session code from your host:</p>
-      <input
-        type="text"
-        placeholder="e.g. banana"
-        value={sessionCode}
-        onChange={e => setSessionCode(e.target.value)}
-      />
-      <button onClick={handleJoin} disabled={!sessionCode.trim()}>
-        Join
-      </button>
-      <p>{status}</p>
+    <div className="panel" style={{ maxWidth: 480, margin: '4rem auto' }}>
+      <h2 className="section-title">Join a Session</h2>
+      <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+        Enter the session code from your host:
+      </p>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <input
+          className="input"
+          type="text"
+          placeholder="e.g. banana"
+          value={sessionCode}
+          onChange={e => setSessionCode(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleJoin()}
+        />
+        <button className="btn" onClick={handleJoin} disabled={!sessionCode.trim()}>
+          Join
+        </button>
+      </div>
+      {status && <p className="status">{status}</p>}
     </div>
   )
 }
