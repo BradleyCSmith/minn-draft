@@ -12,8 +12,11 @@ export default function SessionLobby({ role, cardPool, onReady }) {
 
     const channel = supabase.channel(`draft-${code}`)
 
-    // Wait for guest to join, then send packs
+    // Wait for guest to join — only accept the first JOIN received
+    let guestJoined = false
     channel.on('broadcast', { event: 'JOIN' }, () => {
+      if (guestJoined) return
+      guestJoined = true
       setStatus('Guest connected! Starting draft...')
       const packs = generatePacks(cardPool)
       channel.send({ type: 'broadcast', event: 'START', payload: { packs } })
