@@ -343,6 +343,36 @@ h1, h2, h3 {
   margin: 1rem 0;
 }
 
+/* ── Import tabs ── */
+.tab-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.4rem 1rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.tab-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.tab-btn--active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ── Start screen ── */
 .start-screen {
   display: flex;
