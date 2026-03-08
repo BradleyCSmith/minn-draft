@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react'
 
 const STEPS = ['pick1_own', 'pick2_opp', 'pick2_own']
 
-export default function DraftBoard({ packs, connection, role, onComplete }) {
+export default function DraftBoard({ packs, channel, role, onComplete }) {
   const myPackIndices = role === 'host' ? [0,1,2,3,4,5,6,7] : [8,9,10,11,12,13,14,15]
 
   const [packIndex, setPackIndex] = useState(0)
@@ -18,18 +18,21 @@ export default function DraftBoard({ packs, connection, role, onComplete }) {
   const [selected, setSelected] = useState([])
   const [waitingForOpp, setWaitingForOpp] = useState(false)
 
-  // Packs/signals received before we finished our current step
   const [pendingOppPack, setPendingOppPack] = useState(null)
   const [pendingMyPack, setPendingMyPack] = useState(null)
   const [pendingReadyNext, setPendingReadyNext] = useState(false)
 
-  // Ref so the stable event listener always reads current state
   const stateRef = useRef({})
-  stateRef.current = { stepIndex, packIndex, waitingForOpp, pendingOppPack, pendingMyPack }
+  stateRef.current = { stepIndex, packIndex, waitingForOpp }
 
   const step = STEPS[stepIndex]
   const pickCount = step === 'pick1_own' ? 1 : 2
   const activePack = step === 'pick2_opp' ? oppPack : myPack
+
+  // Helper to send a message via Supabase broadcast
+  function send(event, payload = {}) {
+    channel.send({ type: 'broadcast', event, payload })
+  }
 
   function doAdvanceToNextPack(currentPackIndex) {
     const next = currentPackIndex + 1
@@ -44,62 +47,48 @@ export default function DraftBoard({ packs, connection, role, onComplete }) {
     setWaitingForOpp(false)
   }
 
-  // Single stable listener — registered once per connection
+  // Listen for incoming messages from opponent via Supabase broadcast
   useEffect(() => {
     let active = true
 
-    function handleIncoming(msg) {
+    channel.on('broadcast', { event: '*' }, ({ event, payload }) => {
       if (!active) return
       const { stepIndex: si, packIndex: pi, waitingForOpp: waiting } = stateRef.current
-      console.log(`[DraftBoard] received ${msg.type} | stepIndex=${si} waitingForOpp=${waiting}`)
 
-      if (msg.type === 'TRADE_PACK') {
+      if (event === 'TRADE_PACK') {
         if (si === 0 && !waiting) {
-          console.log('[DraftBoard] saving TRADE_PACK as pending (still picking)')
-          setPendingOppPack(msg.pack)
+          setPendingOppPack(payload.pack)
         } else {
-          console.log('[DraftBoard] applying TRADE_PACK → advancing to step 1')
-          setOppPack(msg.pack)
+          setOppPack(payload.pack)
           setStepIndex(1)
           setWaitingForOpp(false)
         }
       }
 
-      if (msg.type === 'TRADE_BACK') {
+      if (event === 'TRADE_BACK') {
         if (si === 1 && !waiting) {
-          console.log('[DraftBoard] saving TRADE_BACK as pending (still picking)')
-          setPendingMyPack(msg.pack)
+          setPendingMyPack(payload.pack)
         } else {
-          console.log('[DraftBoard] applying TRADE_BACK → advancing to step 2')
-          setMyPack(msg.pack)
+          setMyPack(payload.pack)
           setStepIndex(2)
           setWaitingForOpp(false)
         }
       }
 
-      if (msg.type === 'READY_NEXT') {
+      if (event === 'READY_NEXT') {
         if (si === 2 && !waiting) {
-          // Haven't finished pick2_own yet — save signal for after we confirm
-          console.log('[DraftBoard] saving READY_NEXT as pending (still picking)')
           setPendingReadyNext(true)
         } else {
-          console.log('[DraftBoard] READY_NEXT → advancing to next pack')
           doAdvanceToNextPack(pi)
         }
       }
-    }
+    })
 
-    console.log('[DraftBoard] registering data listener')
-    connection.on('data', handleIncoming)
-    return () => {
-      console.log('[DraftBoard] disabling data listener (StrictMode cleanup)')
-      active = false
-    }
-  }, [connection])
+    return () => { active = false }
+  }, [channel])
 
   function confirmPicks() {
     if (selected.length !== pickCount) return
-    console.log(`[DraftBoard] confirmPicks | step=${step} pendingOppPack=${!!pendingOppPack} pendingMyPack=${!!pendingMyPack} pendingReadyNext=${pendingReadyNext}`)
 
     const newPicks = [...picks, ...selected]
     setPicks(newPicks)
@@ -108,7 +97,7 @@ export default function DraftBoard({ packs, connection, role, onComplete }) {
     if (step === 'pick1_own') {
       const remaining = myPack.filter(c => !selected.includes(c))
       setMyPack(remaining)
-      connection.send({ type: 'TRADE_PACK', pack: remaining })
+      send('TRADE_PACK', { pack: remaining })
 
       if (pendingOppPack) {
         setOppPack(pendingOppPack)
@@ -120,7 +109,7 @@ export default function DraftBoard({ packs, connection, role, onComplete }) {
 
     } else if (step === 'pick2_opp') {
       const remaining = oppPack.filter(c => !selected.includes(c))
-      connection.send({ type: 'TRADE_BACK', pack: remaining })
+      send('TRADE_BACK', { pack: remaining })
 
       if (pendingMyPack) {
         setMyPack(pendingMyPack)
@@ -134,9 +123,8 @@ export default function DraftBoard({ packs, connection, role, onComplete }) {
       if (packIndex === 7) {
         onComplete(newPicks)
       } else {
-        connection.send({ type: 'READY_NEXT' })
+        send('READY_NEXT')
         if (pendingReadyNext) {
-          // Opponent already finished — advance immediately
           doAdvanceToNextPack(packIndex)
         } else {
           setWaitingForOpp(true)

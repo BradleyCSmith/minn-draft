@@ -85,9 +85,9 @@ minn_draft/
 ## Next Steps (in rough priority order)
 
 1. **Remove debug logging** — strip `console.log` calls from `DraftBoard.jsx` before deploying
-2. **Styling** — the UI is currently unstyled HTML; add CSS to make it usable and pleasant
-3. **Card images** — integrate the Scryfall API to show card art during drafting
-4. **Deployment** — deploy to Vercel or GitHub Pages so players can use it without running a local server
+2. **Custom session codes** — let the host choose a short human-readable code (e.g. "banana") instead of the auto-generated PeerJS UUID; PeerJS supports custom IDs via `new Peer(customId)`
+3. **Styling** — the UI is currently unstyled HTML; add CSS to make it usable and pleasant
+4. **Card images** — integrate the Scryfall API to show card art during drafting
 
 ## Out of Scope (for now)
 

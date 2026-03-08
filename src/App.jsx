@@ -3,7 +3,6 @@ import CardPoolImport from './components/CardPoolImport.jsx'
 import SessionLobby from './components/SessionLobby.jsx'
 import DraftBoard from './components/DraftBoard.jsx'
 import DecklistExport from './components/DecklistExport.jsx'
-import usePeer from './hooks/usePeer.js'
 
 // App-level state machine:
 // 'start' → host: 'import' → 'lobby' → 'draft' → 'export'
@@ -14,11 +13,8 @@ export default function App() {
   const [role, setRole] = useState(null)
   const [cardPool, setCardPool] = useState([])
   const [packs, setPacks] = useState([])
-  const [connection, setConnection] = useState(null)
+  const [channel, setChannel] = useState(null)
   const [picks, setPicks] = useState([])
-
-  // Peer lives at App level so it isn't destroyed when SessionLobby unmounts
-  const { peerId, connect, onConnection } = usePeer()
 
   function handleRoleSelect(selectedRole) {
     setRole(selectedRole)
@@ -30,8 +26,8 @@ export default function App() {
     setScreen('lobby')
   }
 
-  function handleSessionReady(conn, generatedPacks) {
-    setConnection(conn)
+  function handleSessionReady(supabaseChannel, generatedPacks) {
+    setChannel(supabaseChannel)
     setPacks(generatedPacks)
     setScreen('draft')
   }
@@ -57,16 +53,13 @@ export default function App() {
         <SessionLobby
           role={role}
           cardPool={cardPool}
-          peerId={peerId}
-          connect={connect}
-          onConnection={onConnection}
           onReady={handleSessionReady}
         />
       )}
       {screen === 'draft' && (
         <DraftBoard
           packs={packs}
-          connection={connection}
+          channel={channel}
           role={role}
           onComplete={handleDraftComplete}
         />

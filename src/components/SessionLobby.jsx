@@ -1,42 +1,67 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { supabase } from '../lib/supabase.js'
 import { generatePacks } from '../utils/packGenerator.js'
 
-export default function SessionLobby({ role, cardPool, peerId, connect, onConnection, onReady }) {
-  const [joinCode, setJoinCode] = useState('')
+export default function SessionLobby({ role, cardPool, onReady }) {
+  const [sessionCode, setSessionCode] = useState('')
   const [status, setStatus] = useState('')
 
-  // HOST: wait for guest to connect, then generate and send packs
-  useEffect(() => {
-    if (role !== 'host') return
+  function handleHost() {
+    const code = sessionCode.trim().toLowerCase()
+    if (!code) return
 
-    onConnection((conn) => {
+    const channel = supabase.channel(`draft-${code}`)
+
+    // Wait for guest to join, then send packs
+    channel.on('broadcast', { event: 'JOIN' }, () => {
       setStatus('Guest connected! Starting draft...')
       const packs = generatePacks(cardPool)
-      conn.send({ type: 'START', packs })
-      onReady(conn, packs)
+      channel.send({ type: 'broadcast', event: 'START', payload: { packs } })
+      onReady(channel, packs)
     })
-  }, [role, cardPool])
 
-  // GUEST: connect to host, wait for START message
-  function handleJoin() {
-    const conn = connect(joinCode.trim())
-    setStatus('Connecting to host...')
-
-    conn.on('open', () => setStatus('Connected! Waiting for host to start...'))
-
-    conn.on('data', (msg) => {
-      if (msg.type === 'START') {
-        onReady(conn, msg.packs)
+    channel.subscribe((s) => {
+      if (s === 'SUBSCRIBED') {
+        setStatus(`Waiting for guest to join with code: "${code}"`)
       }
     })
+  }
+
+  function handleJoin() {
+    const code = sessionCode.trim().toLowerCase()
+    if (!code) return
+
+    const channel = supabase.channel(`draft-${code}`)
+
+    // Wait for host to send packs
+    channel.on('broadcast', { event: 'START' }, ({ payload }) => {
+      onReady(channel, payload.packs)
+    })
+
+    channel.subscribe((s) => {
+      if (s === 'SUBSCRIBED') {
+        channel.send({ type: 'broadcast', event: 'JOIN', payload: {} })
+        setStatus('Connected! Waiting for host to start...')
+      }
+    })
+
+    setStatus('Connecting...')
   }
 
   if (role === 'host') {
     return (
       <div>
-        <h2>Hosting Session</h2>
-        <p>Share this code with your opponent:</p>
-        <strong>{peerId || 'Generating code...'}</strong>
+        <h2>Host a Session</h2>
+        <p>Choose a short code to share with your opponent:</p>
+        <input
+          type="text"
+          placeholder="e.g. banana"
+          value={sessionCode}
+          onChange={e => setSessionCode(e.target.value)}
+        />
+        <button onClick={handleHost} disabled={!sessionCode.trim()}>
+          Create Session
+        </button>
         <p>{status}</p>
       </div>
     )
@@ -44,15 +69,15 @@ export default function SessionLobby({ role, cardPool, peerId, connect, onConnec
 
   return (
     <div>
-      <h2>Join Session</h2>
+      <h2>Join a Session</h2>
       <p>Enter the session code from your host:</p>
       <input
         type="text"
-        placeholder="Enter session code"
-        value={joinCode}
-        onChange={e => setJoinCode(e.target.value)}
+        placeholder="e.g. banana"
+        value={sessionCode}
+        onChange={e => setSessionCode(e.target.value)}
       />
-      <button onClick={handleJoin} disabled={!joinCode.trim()}>
+      <button onClick={handleJoin} disabled={!sessionCode.trim()}>
         Join
       </button>
       <p>{status}</p>
