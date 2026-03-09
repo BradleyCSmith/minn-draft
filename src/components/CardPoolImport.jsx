@@ -4,11 +4,15 @@ import curatedCubes from '../data/curatedCubes.json'
 const MIN_CARDS = 112
 
 function parseCubeText(text) {
-  return text
-    .split('\n')
-    .map(line => line.trim())
-    .map(line => line.replace(/^\d+\s+/, '')) // strip leading "1 " quantity prefixes
-    .filter(line => line.length > 0)
+  const lines = text.split('\n').map(line => line.trim())
+
+  // Discard everything from # maybeboard onward
+  const maybeIdx = lines.findIndex(l => l.replace(/\s+/g, '').toLowerCase() === '#maybeboard')
+  const mainLines = maybeIdx >= 0 ? lines.slice(0, maybeIdx) : lines
+
+  return mainLines
+    .filter(line => line.length > 0 && !line.startsWith('#')) // drop section headers
+    .map(line => line.replace(/^\d+\s+/, ''))                 // strip quantity prefixes
 }
 
 function extractCubeId(input) {

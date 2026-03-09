@@ -30,6 +30,22 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
     () => Number(localStorage.getItem('pickCardSize')) || 72
   )
 
+  // Pick list rows of columns — 2D grid for deck organization
+  const [pickRows, setPickRows] = useState([[
+    { id: 0, label: 'Column 1', cards: [] },
+    { id: 1, label: 'Column 2', cards: [] },
+    { id: 2, label: 'Column 3', cards: [] },
+    { id: 3, label: 'Column 4', cards: [] },
+    { id: 4, label: 'Column 5', cards: [] },
+    { id: 5, label: 'Column 6', cards: [] },
+    { id: 6, label: 'Column 7', cards: [] },
+  ]])
+  const nextColId = useRef(7)
+
+  // Drag-to-rearrange state
+  const [dragging, setDragging] = useState(null)   // { card, fromColId }
+  const [dropTarget, setDropTarget] = useState(null) // { colId, insertBeforeCard: string|null }
+
   function updatePackCardSize(val) {
     setPackCardSize(val)
     localStorage.setItem('packCardSize', val)
@@ -121,6 +137,11 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
         i === packIndex ? [...packPicks, ...selected] : packPicks
       )
     )
+    setPickRows(prev =>
+      prev.map((row, ri) =>
+        ri === 0 ? row.map((col, ci) => ci === 0 ? { ...col, cards: [...col.cards, ...selected] } : col) : row
+      )
+    )
     setSelected([])
 
     if (step === 'pick1_own') {
@@ -177,35 +198,173 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   }
 
   function PickList() {
-    const packsWithPicks = picksByPack
-      .map((packPicks, i) => ({ packNum: i + 1, cards: packPicks }))
-      .filter(({ cards }) => cards.length > 0)
+    if (allPicks.length === 0) return null
 
-    if (packsWithPicks.length === 0) return null
+    const cardHeight = pickCardSize * (204 / 146)
+
+    function addColumn(rowIdx) {
+      const id = nextColId.current++
+      setPickRows(prev => prev.map((row, ri) =>
+        ri === rowIdx ? [...row, { id, label: `Column ${row.length + 1}`, cards: [] }] : row
+      ))
+    }
+
+    function addRow() {
+      const id = nextColId.current++
+      setPickRows(prev => [...prev, [{ id, label: 'Column 1', cards: [] }]])
+    }
+
+    function deleteColumn(colId) {
+      setPickRows(prev => {
+        const orphans = prev.flatMap(row => row).find(c => c.id === colId)?.cards ?? []
+        const newRows = prev
+          .map(row => row.filter(c => c.id !== colId))
+          .filter(row => row.length > 0)
+        if (orphans.length > 0 && newRows.length > 0) {
+          newRows[0] = newRows[0].map((col, i) => i === 0 ? { ...col, cards: [...col.cards, ...orphans] } : col)
+        }
+        return newRows.length > 0 ? newRows : [[{ id: nextColId.current++, label: 'Column 1', cards: orphans }]]
+      })
+    }
+
+    function deleteRow(rowIdx) {
+      setPickRows(prev => {
+        const orphans = prev[rowIdx].flatMap(col => col.cards)
+        const newRows = prev.filter((_, i) => i !== rowIdx)
+        if (orphans.length > 0 && newRows.length > 0) {
+          newRows[0] = newRows[0].map((col, i) => i === 0 ? { ...col, cards: [...col.cards, ...orphans] } : col)
+        }
+        return newRows
+      })
+    }
+
+    function handleDragStart(e, card, fromColId) {
+      setDragging({ card, fromColId })
+      e.dataTransfer.effectAllowed = 'move'
+    }
+
+    function handleDragEnd() {
+      setDragging(null)
+      setDropTarget(null)
+    }
+
+    function handleDragOverCard(e, colId, card) {
+      e.preventDefault()
+      e.stopPropagation()
+      setDropTarget({ colId, insertBeforeCard: card })
+    }
+
+    function handleDragOverColumn(e, colId) {
+      e.preventDefault()
+      if (dropTarget?.colId !== colId || dropTarget?.insertBeforeCard !== null) {
+        setDropTarget({ colId, insertBeforeCard: null })
+      }
+    }
+
+    function handleDrop(e, colId, insertBeforeCard) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!dragging) return
+      const { card, fromColId } = dragging
+      setPickRows(prev => {
+        let rows = prev.map(row => row.map(col =>
+          col.id === fromColId ? { ...col, cards: col.cards.filter(c => c !== card) } : col
+        ))
+        rows = rows.map(row => row.map(col => {
+          if (col.id !== colId) return col
+          if (insertBeforeCard === null || !col.cards.includes(insertBeforeCard)) {
+            return { ...col, cards: [...col.cards, card] }
+          }
+          const idx = col.cards.indexOf(insertBeforeCard)
+          const next = [...col.cards]
+          next.splice(idx, 0, card)
+          return { ...col, cards: next }
+        }))
+        return rows
+      })
+      setDragging(null)
+      setDropTarget(null)
+    }
+
+    function renderColumn(col, colIdx, isFirstRow) {
+      const isColTarget = dropTarget?.colId === col.id && dropTarget?.insertBeforeCard === null
+      const canDelete = !(isFirstRow && colIdx === 0)
+      return (
+        <div
+          key={col.id}
+          className={`pick-column ${isColTarget ? 'pick-column--drop-target' : ''}`}
+          onDragOver={e => handleDragOverColumn(e, col.id)}
+          onDrop={e => handleDrop(e, col.id, null)}
+        >
+          <div className="pick-column-header">
+            <span className="pick-column-title">{col.label}</span>
+            {canDelete && (
+              <button className="pick-column-delete" onClick={() => deleteColumn(col.id)}>×</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', width: pickCardSize, minHeight: cardHeight }}>
+            {col.cards.map((card, i) => {
+              const urls = imageUrls[card]
+              const peek = Math.round(cardHeight * 0.18)
+              const overlapMargin = i === 0 ? 0 : -(cardHeight - peek)
+              const isDraggingThis = dragging?.card === card
+              const isDropBefore = dropTarget?.colId === col.id && dropTarget?.insertBeforeCard === card
+              const sharedStyle = {
+                marginTop: overlapMargin,
+                position: 'relative',
+                cursor: 'grab',
+                opacity: isDraggingThis ? 0.3 : 1,
+                outline: isDropBefore ? '2px solid var(--accent)' : 'none',
+                outlineOffset: 2,
+              }
+              return urls?.small
+                ? <img key={card} src={urls.small} alt={card} title={card}
+                    draggable
+                    onDragStart={e => handleDragStart(e, card, col.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={e => handleDragOverCard(e, col.id, card)}
+                    onDrop={e => handleDrop(e, col.id, card)}
+                    style={{ width: pickCardSize, borderRadius: 4, display: 'block', ...sharedStyle }} />
+                : <div key={card} className="pick-card-placeholder"
+                    draggable
+                    onDragStart={e => handleDragStart(e, card, col.id)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={e => handleDragOverCard(e, col.id, card)}
+                    onDrop={e => handleDrop(e, col.id, card)}
+                    style={{ width: pickCardSize, ...sharedStyle }}
+                    title={card}>{card}</div>
+            })}
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="pick-list">
-        <div className="section-title">Your picks ({allPicks.length} cards)</div>
-        <div className="pick-columns">
-          {packsWithPicks.map(({ packNum, cards }) => (
-            <div key={packNum} className="pick-column">
-              <div className="pick-column-title">Pack {packNum}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', width: pickCardSize }}>
-                {cards.map((card, i) => {
-                  const urls = imageUrls[card]
-                  // Show ~18px of each card below the one on top
-                  const cardHeight = pickCardSize * (204 / 146)
-                  const overlapMargin = i === 0 ? 0 : -(cardHeight - 18)
-                  return urls?.small
-                    ? <img key={card} src={urls.small} alt={card} title={card}
-                        style={{ width: pickCardSize, borderRadius: 4, display: 'block', marginTop: overlapMargin, position: 'relative' }} />
-                    : <div key={card} className="pick-card-placeholder"
-                        style={{ width: pickCardSize, marginTop: i === 0 ? 0 : overlapMargin }}
-                        title={card}>{card}</div>
-                })}
+        <div className="pick-list-header">
+          <div className="section-title" style={{ borderBottom: 'none', marginBottom: 0 }}>
+            Your picks ({allPicks.length} cards)
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            Size
+            <input type="range" min={50} max={240} value={pickCardSize}
+              onChange={e => updatePickCardSize(Number(e.target.value))} />
+          </label>
+        </div>
+
+        <div className="pick-rows">
+          {pickRows.map((row, rowIdx) => (
+            <div key={rowIdx} className="pick-row">
+              <div className="pick-columns">
+                {row.map((col, colIdx) => renderColumn(col, colIdx, rowIdx === 0))}
+                <button className="btn pick-add-column" onClick={() => addColumn(rowIdx)}>+ Column</button>
               </div>
+              {rowIdx > 0 && (
+                <button className="btn pick-delete-row" onClick={() => deleteRow(rowIdx)}>× Row</button>
+              )}
             </div>
           ))}
+          <button className="btn pick-add-row" onClick={addRow}>+ Row</button>
         </div>
       </div>
     )
@@ -232,7 +391,7 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
           <span className="pack-label">Pack {packIndex + 1} / 8</span>
         </div>
         <div className="panel waiting">Waiting for opponent...</div>
-        <PickList />
+        {PickList()}
       </div>
     )
   }
@@ -249,11 +408,6 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
           Pack cards
           <input type="range" min={100} max={240} value={packCardSize}
             onChange={e => updatePackCardSize(Number(e.target.value))} />
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          Pick list
-          <input type="range" min={50} max={140} value={pickCardSize}
-            onChange={e => updatePickCardSize(Number(e.target.value))} />
         </label>
       </div>
 
@@ -279,7 +433,7 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
         </button>
       </div>
 
-      <PickList />
+      {PickList()}
     </div>
   )
 }

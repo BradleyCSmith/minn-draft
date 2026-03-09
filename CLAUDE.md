@@ -105,10 +105,13 @@ minn_draft/
 ## Next Steps
 
 1. **[High] Drag-to-rearrange pick list** — let players drag their picked cards between columns (or reorder within a column) to plan their deck as the draft progresses; columns could represent deck archetypes or colors rather than just pack numbers
-2. **[High] CubeCobra URL import** — allow the host to paste a CubeCobra URL instead of copy/pasting the card list text; fetch the list directly from CubeCobra's export endpoint
-3. **[High] Curated cube list presets** — add a dropdown for hosts with a selection of well-known cubes (fetched from CubeCobra) so players can jump into a draft without importing their own list
-4. **[Medium] DFC back-face viewing** — double-faced cards currently show only the front face; add a flip button or hover interaction so players can view the back face during drafting and in the pick list
-5. **[Low] Custom domain** — replace `minn-draft.vercel.app` with a custom URL (e.g. `minneapolisdraft.com`); buy a domain from a registrar like Namecheap or Google Domains and connect it to Vercel for free
+2. **[Medium] DFC back-face viewing** — double-faced cards currently show only the front face; add a flip button or hover interaction so players can view the back face during drafting and in the pick list
+3. **[Low] Custom domain** — replace `minn-draft.vercel.app` with a custom URL (e.g. `minneapolisdraft.com`); buy a domain from a registrar like Namecheap or Google Domains and connect it to Vercel for free
+
+## Completed Features
+
+- CubeCobra URL import — host can paste a URL or cube ID; fetched via Vercel proxy function (`api/fetch-cube.js`)
+- Curated cube presets — six curated cubes available via dropdown; list managed in `src/data/curatedCubes.json`
 
 ## Out of Scope (for now)
 
