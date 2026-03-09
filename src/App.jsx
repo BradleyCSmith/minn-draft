@@ -11,6 +11,7 @@ export default function App() {
   const [packs, setPacks] = useState([])
   const [channel, setChannel] = useState(null)
   const [picks, setPicks] = useState([])
+  const [sideboard, setSideboard] = useState([])
 
   function handleRoleSelect(selectedRole) {
     setRole(selectedRole)
@@ -28,8 +29,9 @@ export default function App() {
     setScreen('draft')
   }
 
-  function handleDraftComplete(draftedCards) {
-    setPicks(draftedCards)
+  function handleDraftComplete(main, side) {
+    setPicks(main)
+    setSideboard(side)
     setScreen('export')
   }
 
@@ -64,7 +66,7 @@ export default function App() {
         />
       )}
       {screen === 'export' && (
-        <DecklistExport picks={picks} />
+        <DecklistExport picks={picks} sideboard={sideboard} />
       )}
     </div>
   )

@@ -42,6 +42,9 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
   ]])
   const nextColId = useRef(7)
 
+  // Sideboard
+  const [sideboardCards, setSideboardCards] = useState([])
+
   // Drag-to-rearrange state
   const [dragging, setDragging] = useState(null)   // { card, fromColId }
   const [dropTarget, setDropTarget] = useState(null) // { colId, insertBeforeCard: string|null }
@@ -169,7 +172,8 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
 
     } else if (step === 'pick2_own') {
       if (packIndex === 7) {
-        onComplete(allPicks)
+        const mainboard = allPicks.filter(c => !sideboardCards.includes(c))
+        onComplete(mainboard, sideboardCards)
       } else {
         send('READY_NEXT')
         if (pendingReadyNext) {
@@ -261,27 +265,50 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
       }
     }
 
+    function insertInto(arr, card, insertBeforeCard) {
+      if (insertBeforeCard === null || !arr.includes(insertBeforeCard)) return [...arr, card]
+      const idx = arr.indexOf(insertBeforeCard)
+      const next = [...arr]
+      next.splice(idx, 0, card)
+      return next
+    }
+
     function handleDrop(e, colId, insertBeforeCard) {
       e.preventDefault()
       e.stopPropagation()
       if (!dragging) return
       const { card, fromColId } = dragging
-      setPickRows(prev => {
-        let rows = prev.map(row => row.map(col =>
-          col.id === fromColId ? { ...col, cards: col.cards.filter(c => c !== card) } : col
-        ))
-        rows = rows.map(row => row.map(col => {
+
+      if (fromColId === 'sideboard' && colId === 'sideboard') {
+        // Reorder within sideboard
+        setSideboardCards(prev => insertInto(prev.filter(c => c !== card), card, insertBeforeCard))
+      } else if (fromColId === 'sideboard') {
+        // Sideboard → pick list
+        setSideboardCards(prev => prev.filter(c => c !== card))
+        setPickRows(prev => prev.map(row => row.map(col => {
           if (col.id !== colId) return col
-          if (insertBeforeCard === null || !col.cards.includes(insertBeforeCard)) {
-            return { ...col, cards: [...col.cards, card] }
-          }
-          const idx = col.cards.indexOf(insertBeforeCard)
-          const next = [...col.cards]
-          next.splice(idx, 0, card)
-          return { ...col, cards: next }
-        }))
-        return rows
-      })
+          return { ...col, cards: insertInto(col.cards, card, insertBeforeCard) }
+        })))
+      } else if (colId === 'sideboard') {
+        // Pick list → sideboard
+        setPickRows(prev => prev.map(row => row.map(col =>
+          col.id === fromColId ? { ...col, cards: col.cards.filter(c => c !== card) } : col
+        )))
+        setSideboardCards(prev => insertInto(prev, card, insertBeforeCard))
+      } else {
+        // Pick list → pick list
+        setPickRows(prev => {
+          let rows = prev.map(row => row.map(col =>
+            col.id === fromColId ? { ...col, cards: col.cards.filter(c => c !== card) } : col
+          ))
+          rows = rows.map(row => row.map(col => {
+            if (col.id !== colId) return col
+            return { ...col, cards: insertInto(col.cards, card, insertBeforeCard) }
+          }))
+          return rows
+        })
+      }
+
       setDragging(null)
       setDropTarget(null)
     }
@@ -339,6 +366,52 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
       )
     }
 
+    function renderSideboard() {
+      const isSideboardTarget = dropTarget?.colId === 'sideboard' && dropTarget?.insertBeforeCard === null
+      return (
+        <div
+          className={`sideboard-panel ${isSideboardTarget ? 'pick-column--drop-target' : ''}`}
+          onDragOver={e => handleDragOverColumn(e, 'sideboard')}
+          onDrop={e => handleDrop(e, 'sideboard', null)}
+        >
+          <div className="pick-column-title">Sideboard ({sideboardCards.length})</div>
+          <div style={{ display: 'flex', flexDirection: 'column', width: pickCardSize, minHeight: cardHeight }}>
+            {sideboardCards.map((card, i) => {
+              const urls = imageUrls[card]
+              const peek = Math.round(cardHeight * 0.18)
+              const overlapMargin = i === 0 ? 0 : -(cardHeight - peek)
+              const isDraggingThis = dragging?.card === card
+              const isDropBefore = dropTarget?.colId === 'sideboard' && dropTarget?.insertBeforeCard === card
+              const sharedStyle = {
+                marginTop: overlapMargin,
+                position: 'relative',
+                cursor: 'grab',
+                opacity: isDraggingThis ? 0.3 : 1,
+                outline: isDropBefore ? '2px solid var(--accent)' : 'none',
+                outlineOffset: 2,
+              }
+              return urls?.small
+                ? <img key={card} src={urls.small} alt={card} title={card}
+                    draggable
+                    onDragStart={e => handleDragStart(e, card, 'sideboard')}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={e => handleDragOverCard(e, 'sideboard', card)}
+                    onDrop={e => handleDrop(e, 'sideboard', card)}
+                    style={{ width: pickCardSize, borderRadius: 4, display: 'block', ...sharedStyle }} />
+                : <div key={card} className="pick-card-placeholder"
+                    draggable
+                    onDragStart={e => handleDragStart(e, card, 'sideboard')}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={e => handleDragOverCard(e, 'sideboard', card)}
+                    onDrop={e => handleDrop(e, 'sideboard', card)}
+                    style={{ width: pickCardSize, ...sharedStyle }}
+                    title={card}>{card}</div>
+            })}
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="pick-list">
         <div className="pick-list-header">
@@ -352,19 +425,22 @@ export default function DraftBoard({ packs, channel, role, onComplete }) {
           </label>
         </div>
 
-        <div className="pick-rows">
-          {pickRows.map((row, rowIdx) => (
-            <div key={rowIdx} className="pick-row">
-              <div className="pick-columns">
-                {row.map((col, colIdx) => renderColumn(col, colIdx, rowIdx === 0))}
-                <button className="btn pick-add-column" onClick={() => addColumn(rowIdx)}>+ Column</button>
+        <div className="pick-list-body">
+          <div className="pick-rows">
+            {pickRows.map((row, rowIdx) => (
+              <div key={rowIdx} className="pick-row">
+                <div className="pick-columns">
+                  {row.map((col, colIdx) => renderColumn(col, colIdx, rowIdx === 0))}
+                  <button className="btn pick-add-column" onClick={() => addColumn(rowIdx)}>+ Column</button>
+                </div>
+                {rowIdx > 0 && (
+                  <button className="btn pick-delete-row" onClick={() => deleteRow(rowIdx)}>× Row</button>
+                )}
               </div>
-              {rowIdx > 0 && (
-                <button className="btn pick-delete-row" onClick={() => deleteRow(rowIdx)}>× Row</button>
-              )}
-            </div>
-          ))}
-          <button className="btn pick-add-row" onClick={addRow}>+ Row</button>
+            ))}
+            <button className="btn pick-add-row" onClick={addRow}>+ Row</button>
+          </div>
+          {renderSideboard()}
         </div>
       </div>
     )
